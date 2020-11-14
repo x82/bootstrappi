@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# bootstrappi - Raspberry Pi Bootstrap Tool for kicking off dynamic salt deployments
-# https://github.com/x82/bootstrappi
-#
+################################################################################
+# bootstrappi                                                                  #
+# Raspberry Pi Bootstrap Tool for kicking off dynamic salt deployments         #
+# https://github.com/x82/bootstrappi                                           #
+################################################################################
+
 # Thanks to raspi-config https://github.com/RPi-Distro/raspi-config
 # for much of their whiptail and pi-specific configuration code.
 
@@ -26,13 +29,15 @@ calc_wt_size() {
   WT_MENU_HEIGHT=$(($WT_HEIGHT-7))
 }
 
-# check on whether we have successfully ran a dhcp client - possibly on our second boot script.
-# This will help determine whether we are running in client mode or deployment mode - maybe prompt too?
+# check on whether we have successfully ran a dhcp client - possibly on our
+# second boot script.  This will help determine whether we are running in
+# client mode or deployment mode - maybe prompt too?
 
-# maybe an initial menu, with pw change, non-interactive, interactive (later?), and exit.
-# perhaps add a note that hardware options and other niceties can be updated in raspi-config.
+# maybe an initial menu, with pw change, non-interactive, interactive
+# (later?), and exit.  perhaps add a note that hardware options and other
+# niceties can be updated in raspi-config.
 
-# first prompt for a password change, just so we can get that done in case it's a new install
+# first prompt for a password change, in case it's a fresh install
 do_change_pass() {
   whiptail --msgbox "You will now be asked to enter a new password for the $USER user" 20 60 1
   passwd $USER &&
@@ -42,10 +47,11 @@ do_change_pass() {
 # change this to a prompt for interactive mode at the end.
 do_about() {
   whiptail --msgbox "\
-This tool provides is designed to turn an out-of-the-box Raspberry Pi (OS) into a
-dynamic staging platform for a salt deployment.  It is designed to be a operated from
-a github gitfs configuration to ensure as the deployment can be as customised as
-possible with the least possible amount of hard-coding in the toolchain.\
+This tool provides is designed to turn an out-of-the-box Raspberry Pi (OS) into 
+a dynamic staging platform for a salt deployment.  It is designed to be 
+operated from a github gitfs configuration to ensure as the deployment can be
+as customised as possible with the least possible amount of hard-coding in the 
+toolchain.\
 " 20 70 1
 }
 
@@ -322,31 +328,11 @@ nonint() {
 for i in $*
 do
   case $i in
-  --memory-split)
-    OPT_MEMORY_SPLIT=GET
-    printf "Not currently supported\n"
-    exit 1
-    ;;
-  --memory-split=*)
-    OPT_MEMORY_SPLIT=`echo $i | sed 's/[-a-zA-Z0-9]*=//'`
-    printf "Not currently supported\n"
-    exit 1
-    ;;
-  --expand-rootfs)
+  --nonint)
     INTERACTIVE=False
-    do_expand_rootfs
-    printf "Please reboot\n"
-    exit 0
-    ;;
-  --apply-os-config)
-    INTERACTIVE=False
-    do_apply_os_config
-    exit $?
-    ;;
-  nonint)
-    INTERACTIVE=False
+    printf "Non-interactive mode selected.\n"
     "$@"
-    exit $?
+    exit 0
     ;;
   *)
     # unknown option
@@ -356,7 +342,7 @@ done
 
 # Everything else needs to be run as root
 if [ $(id -u) -ne 0 ]; then
-  printf "Script must be run as root. Try 'sudo raspi-config'\n"
+  printf "Script must be run as root. Try 'sudo bspi.sh'\n"
   exit 1
 fi
 
@@ -364,7 +350,6 @@ fi
 # Interactive use loop
 #
 if [ "$INTERACTIVE" = True ]; then
-  [ -e $CONFIG ] || touch $CONFIG
   calc_wt_size
   while [ "$USER" = "root" ] || [ -z "$USER" ]; do
     if ! USER=$(whiptail --inputbox "raspi-config could not determine the default user.\\n\\nWhat user should these settings apply to?" 20 60 pi 3>&1 1>&2 2>&3); then
@@ -372,27 +357,16 @@ if [ "$INTERACTIVE" = True ]; then
     fi
   done
   while true; do
-    if is_pi ; then
-      FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --backtitle "$(cat /proc/device-tree/model)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
-        "1 System Options" "Configure system settings" \
-        "2 Display Options" "Configure display settings" \
-        "3 Interface Options" "Configure connections to peripherals" \
-        "4 Performance Options" "Configure performance settings" \
-        "5 Localisation Options" "Configure language and regional settings" \
-        "6 Advanced Options" "Configure advanced settings" \
-        "8 Update" "Update this tool to the latest version" \
-        "9 About raspi-config" "Information about this configuration tool" \
-        3>&1 1>&2 2>&3)
-    else
-      FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
-        "1 System Options" "Configure system settings" \
-        "2 Display Options" "Configure display settings" \
-        "3 Interface Options" "Configure connections to peripherals" \
-        "5 Localisation Options" "Configure language and regional settings" \
-        "6 Advanced Options" "Configure advanced settings" \
-        "8 Update" "Update this tool to the latest version" \
-        "9 About raspi-config" "Information about this configuration tool" \
-        3>&1 1>&2 2>&3)
+    FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --backtitle "$(cat /proc/device-tree/model)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
+      "1 System Options" "Configure system settings" \
+      "2 Display Options" "Configure display settings" \
+      "3 Interface Options" "Configure connections to peripherals" \
+      "4 Performance Options" "Configure performance settings" \
+      "5 Localisation Options" "Configure language and regional settings" \
+      "6 Advanced Options" "Configure advanced settings" \
+      "8 Update" "Update this tool to the latest version" \
+      "9 About raspi-config" "Information about this configuration tool" \
+      3>&1 1>&2 2>&3)
     fi
     RET=$?
     if [ $RET -eq 1 ]; then
