@@ -68,6 +68,8 @@ ping_gw() {
 
 case "\$1" in
   installsalt)
+    echo "salt" > /etc/hostname
+    hostname salt
     ping_gw || sleep 30
     ping_gw || sleep 30
     apt-get update &&
