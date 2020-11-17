@@ -6,7 +6,7 @@
 ################################################################################
 
 # latest "Raspberry Pi OS Lite" image location
-url=${2:-'https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-08-24/2020-08-20-raspios-buster-armhf-lite.zip'}
+url=${1:-'https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-08-24/2020-08-20-raspios-buster-armhf-lite.zip'}
 
 # We're installing packages so we'll need root permissions.
 if [ $(id -u) -ne 0 ]; then
@@ -24,14 +24,12 @@ else
   exit 1
 fi 
 
-if [ ! -e /tmp/raspi_image.zip ] || [ $1 -eq "-f" ]; then
-  wget "$url" -O /tmp/raspi_image.zip
-fi
+wget "$url" -O /tmp/raspi_image.zip
 
-if [ -r /tmp/raspi_image.zip ]; then
+if [ -e /tmp/raspi_image.zip ]; then
   mkdir -p /tmp/raspi
   unzip -d /tmp/raspi /tmp/raspi_image.zip
-  #rm -f /tmp/raspi_image.zip
+  rm -f /tmp/raspi_image.zip
 else
   echo "The image download failed!  Please verify URL and network connectivity."
   exit 1
