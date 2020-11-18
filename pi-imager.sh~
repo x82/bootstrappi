@@ -6,7 +6,7 @@
 ################################################################################
 
 # latest "Raspberry Pi OS Lite" image location
-url=${1:-'https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-08-24/2020-08-20-raspios-buster-armhf-lite.zip'}
+url=${2:-'https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-08-24/2020-08-20-raspios-buster-armhf-lite.zip'}
 
 # We're installing packages so we'll need root permissions.
 if [ $(id -u) -ne 0 ]; then
@@ -24,12 +24,14 @@ else
   exit 1
 fi 
 
-wget "$url" -O /tmp/raspi_image.zip
+if [ ! -e /tmp/raspi_image.zip ] || [ "$1" != "-f" ]; then
+  wget "$url" -O /tmp/raspi_image.zip
+fi
 
-if [ -e /tmp/raspi_image.zip ]; then
+if [ -r /tmp/raspi_image.zip ]; then
   mkdir -p /tmp/raspi
   unzip -d /tmp/raspi /tmp/raspi_image.zip
-  rm -f /tmp/raspi_image.zip
+  #rm -f /tmp/raspi_image.zip
 else
   echo "The image download failed!  Please verify URL and network connectivity."
   exit 1
@@ -66,10 +68,12 @@ ping_gw() {
 
 case "\$1" in
   installsalt)
+    echo "salt" > /etc/hostname
+    hostname salt
     ping_gw || sleep 30
     ping_gw || sleep 30
     apt-get update &&
-    apt-get -y install salt-master salt-minion python-pygit2
+    apt-get -y install git salt-master salt-minion python-pygit2
     EXITCODE=\$?
     exit \$EXITCODE
     ;;
