@@ -93,6 +93,16 @@ EOCF
       exit 1
     fi
     ;;
+  autologin)
+    systemctl set-default multi-user.target
+    ln -fs /lib/systemd/system/getty@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
+    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOCF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
+EOCF
+    exit 0
+    ;;
 esac
 EOF
 chmod +x /mnt/opt/bspi/bin/bspi
@@ -112,6 +122,8 @@ cat <<EOF > /mnt/etc/init.d/bspi
 . /lib/lsb/init-functions
 case "\$1" in
   start)
+    /opt/bspi/bin/bspi autologin
+
     if [[ \$(/opt/bspi/bin/bspi installsalt) ]]; then
       log_action_msg "Installed salt and pygit2.."
     else
