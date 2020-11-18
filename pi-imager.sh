@@ -24,7 +24,7 @@ else
   exit 1
 fi 
 
-if [ ! -e /tmp/raspi_image.zip ] || [ "$1" != "-f" ]; then
+if [ ! -e /tmp/raspi_image.zip ] || [ "$1" = "-f" ]; then
   wget "$url" -O /tmp/raspi_image.zip
 fi
 
