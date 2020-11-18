@@ -24,13 +24,13 @@ else
   exit 1
 fi 
 
-if [ ! -e /tmp/raspi_image.zip ] || [ $1 -eq "-f" ]; then
+if [ ! -e /tmp/raspi_image.zip ] || [ "$1" != "-f" ]; then
   wget "$url" -O /tmp/raspi_image.zip
 fi
 
 if [ -r /tmp/raspi_image.zip ]; then
   mkdir -p /tmp/raspi
-  unzip -d /tmp/raspi /tmp/raspi_image.zip
+  unzip -o -d /tmp/raspi /tmp/raspi_image.zip
   #rm -f /tmp/raspi_image.zip
 else
   echo "The image download failed!  Please verify URL and network connectivity."
@@ -73,7 +73,7 @@ case "\$1" in
     ping_gw || sleep 30
     ping_gw || sleep 30
     apt-get update &&
-    apt-get -y install salt-master salt-minion python-pygit2
+    apt-get -y install git salt-master salt-minion python-pygit2
     EXITCODE=\$?
     exit \$EXITCODE
     ;;
