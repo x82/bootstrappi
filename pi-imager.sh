@@ -5,14 +5,163 @@
 # https://github.com/x82/bootstrappi                                           #
 ################################################################################
 
+INTERACTIVE=True
+CONFIG=bspi.config
+
 # latest "Raspberry Pi OS Lite" image location
-url=${2:-'https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-08-24/2020-08-20-raspios-buster-armhf-lite.zip'}
+# LATEST_IMG='https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-08-24/2020-08-20-raspios-buster-armhf-lite.zip'
+
+# local cache during development
+DEF_IMG_ZIP="http://192.168.1.190/2020-08-20-raspios-buster-armhf-lite.zip"
+
+# other defaults if bspi.config does not exist yet
+DEF_DEST_HOST="salt"
+DEF_DEST_USER="pi"
+DEF_DEST_PW="raspberry"
+DEF_USE_CACHED="true"
+DEF_GIT_IP="192.168.1.190"
+DEF_GIT_USER="git"
+DEF_GIT_PW="gitpassword"
+
+set_config_var() {
+  lua - "$1" "$2" "$3" <<EOF > "$3.bak"
+local key=assert(arg[1])
+local value=assert(arg[2])
+local fn=assert(arg[3])
+local file=assert(io.open(fn))
+local made_change=false
+for line in file:lines() do
+  if line:match("^#?%s*"..key.."=.*$") then
+    line=key.."="..value
+    made_change=true
+  end
+  print(line)
+end
+if not made_change then
+  print(key.."="..value)
+end
+EOF
+mv "$3.bak" "$3"
+}
+
+clear_config_var() {
+  lua - "$1" "$2" <<EOF > "$2.bak"
+local key=assert(arg[1])
+local fn=assert(arg[2])
+local file=assert(io.open(fn))
+for line in file:lines() do
+  if line:match("^%s*"..key.."=.*$") then
+    line="#"..line
+  end
+  print(line)
+end
+EOF
+mv "$2.bak" "$2"
+}
+
+get_config_var() {
+  lua - "$1" "$2" <<EOF
+local key=assert(arg[1])
+local fn=assert(arg[2])
+local file=assert(io.open(fn))
+local found=false
+for line in file:lines() do
+  local val = line:match("^%s*"..key.."=(.*)$")
+  if (val ~= nil) then
+    print(val)
+    found=true
+    break
+  end
+end
+if not found then
+   print(0)
+end
+EOF
+}
+
+# Configuration setting validation
+validate_hostname() {
+  regex='^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}$'
+  [[ "$1" =~ $regex ]]
+}
+
+validate_username() {
+  regex='^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$'
+  [[ "$1" =~ $regex ]]
+}
+
+
+do_load_defaults() {
+  # load config from file or defaults
+  IMG_ZIP=$(get_config_var zipimgurl $CONFIG)
+  if [ -z $IMG_ZIP ] || [ $IMG_ZIP = "0" ]; then
+    IMG_ZIP=$DEF_IMG_ZIP
+  fi
+  set_config_var zipimgurl $IMG_ZIP $CONFIG
+
+  DEST_HOST=$(get_config_var hostname $CONFIG)
+  if [ -z $DEST_HOST ] || [ $DEST_HOST = "0" ]; then
+    DEST_HOST=$DEF_DEST_HOST
+  fi
+  set_config_var hostname $DEST_HOST $CONFIG
+
+  DEST_USER=$(get_config_var username $CONFIG)
+  if [ -z $DEST_USER ] || [ $DEST_USER = "0" ]; then
+    DEST_USER=$DEF_DEST_USER
+  fi
+  set_config_var username $DEST_USER $CONFIG
+
+  DEST_PW=$(get_config_var password $CONFIG)
+  if [ -z $DEST_PW ] || [ $DEST_PW = "0" ]; then
+    DEST_PW=$DEF_DEST_PW
+  fi
+  set_config_var password $DEST_PW $CONFIG
+
+  USE_CACHED=$(get_config_var usecached $CONFIG)
+  if [ -z $USE_CACHED ] || [ $USE_CACHED = "0" ]; then
+    USE_CACHED=$DEF_USE_CACHED
+  fi
+  set_config_var usecached $USE_CACHED $CONFIG
+
+  GIT_IP=$(get_config_var gitip $CONFIG)
+  if [ -z $GIT_IP ] || [ $GIT_IP = "0" ]; then
+    GIT_IP=$DEF_GIT_IP
+  fi
+  set_config_var gitip $GIT_IP $CONFIG
+
+  GIT_USER=$(get_config_var gituser $CONFIG)
+  if [ -z $GIT_USER ] || [ $GIT_USER = "0" ]; then
+    GIT_USER=$DEF_GIT_USER
+  fi
+  set_config_var gituser $GIT_USER $CONFIG
+
+  GIT_PW=$(get_config_var gitpassword $CONFIG)
+  if [ -z $GIT_PW ] || [ $GIT_PW = "0" ]; then
+    GIT_PW=$DEF_GIT_PW
+  fi
+  set_config_var gitpassword $GIT_PW $CONFIG
+
+  echo "DEBUG:"
+  echo "IMG_ZIP = " $IMG_ZIP
+  echo "DEST_HOST = " $DEST_HOST
+  echo "DEST_USER = " $DEST_USER
+  echo "DEST_PW = " $DEST_PW
+  echo "USE_CACHED = " $USE_CACHED
+  echo "GIT_IP = " $GIT_IP
+  echo "GIT_USER = " $GIT_USER
+  echo "GIT_PW = " $GIT_PW
+  echo ""
+}
 
 # We're installing packages so we'll need root permissions.
 if [ $(id -u) -ne 0 ]; then
   echo "Script must be run as root. Try 'sudo ./pi-imager.sh'"
   exit 1
 fi
+
+[ -e $CONFIG ] || touch $CONFIG
+
+do_load_defaults
 
 if [ $(lsblk -p | grep /dev/mmcblk0 | wc -l) -ne 0 ]; then
   printf "SD card detected at /dev/mmcblk0.\nBe warned, continuing will erase the "
@@ -73,7 +222,7 @@ case "\$1" in
     ping_gw || sleep 30
     ping_gw || sleep 30
     apt-get update &&
-    apt-get -y install git salt-master salt-minion python-pygit2
+    apt-get -y install git salt-master salt-minion python-pygit2 sshpass
     EXITCODE=\$?
     exit \$EXITCODE
     ;;
@@ -99,7 +248,7 @@ EOCF
     cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOCF
 [Service]
 ExecStart=
-ExecStart=-/sbin/agetty --autologin pi --noclear %I \$TERM
+ExecStart=-/sbin/agetty --autologin pi --noclear %I Linux
 EOCF
     exit 0
     ;;
