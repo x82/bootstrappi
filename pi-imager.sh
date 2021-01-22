@@ -10,36 +10,16 @@
 
 # local cache during development
 INFRA_IP="192.168.1.190"
-DEF_IMG_ZIP="http://${INFRA_IP}/2020-08-20-raspios-buster-armhf-lite.zip"
+OS_IMG_URL="http://$INFRA_IP/2020-08-20-raspios-buster-armhf-lite.zip"
 
 # other defaults if bspi.config does not exist yet
-DEF_DEST_HOST="salt"
-DEF_DEST_USER="pi"
-DEF_DEST_PW="raspberry"
-DEF_USE_CACHED="true"
 DEF_GIT_IP="$INFRA_IP"
-DEF_GIT_USER="git"
-
-# Configuration setting validation
-validate_hostname() {
-  regex='^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}$'
-  [[ "$1" =~ $regex ]]
-}
-
-validate_username() {
-  regex='^[a-z_]([a-z0-9_-]{0,31}|[a-z0-9_-]{0,30}\$)$'
-  [[ "$1" =~ $regex ]]
-}
 
 # We're playing with file systems so we'll need root permissions.
 if [ $(id -u) -ne 0 ]; then
   echo "Script must be run as root. Try 'sudo ./pi-imager.sh'"
   exit 1
 fi
-
-[ -e $CONFIG ] || touch $CONFIG
-
-do_load_defaults
 
 if [ $(lsblk -p | grep /dev/mmcblk0 | wc -l) -ne 0 ]; then
   printf "SD card detected at /dev/mmcblk0.\nBe warned, continuing will erase the "
@@ -52,7 +32,7 @@ else
 fi 
 
 if [ ! -e /tmp/raspi_image.zip ] || [ "$1" = "-f" ]; then
-  wget "$url" -O /tmp/raspi_image.zip
+  wget "$OS_IMG_URL" -O /tmp/raspi_image.zip
 fi
 
 if [ -r /tmp/raspi_image.zip ]; then
@@ -94,20 +74,22 @@ case "\$1" in
   start)
     ping_gw || sleep 30
     ping_gw || sleep 30
-    wget -O - http://192.168.1.190/bspi.sh | bash
+    wget -O - http://$INFRA_IP/bspi.sh | bash
     ;;
   *)
     echo "Usage: \$0 start" >&2
     exit 3
     ;;
-esac
+esac 
+exit 0
 EOF
 chmod +x /mnt/etc/init.d/bspi
 ln -sr /mnt/etc/init.d/bspi /mnt/etc/rc3.d/S99bspi
 echo "/etc/init.d/bspi created and linked on disk image.."
-ssh-keygen -C "git@infra" -f /mnt/home/pi/.ssh/id_rsa -N ""
+mkdir /mnt/home/pi/.ssh
+ssh-keygen -C "git@$INFRA_IP" -f /mnt/home/pi/.ssh/id_rsa -N ""
 echo "SSH keys generated.  Log in to infra server to copy new key:"
-ssh-copy-id -i /mnt/home/pi/.ssh/id_rsa.pub git@$INFRA_IP
+ssh-copy-id -i /mnt/home/pi/.ssh/id_rsa.pub -o LogLevel=ERROR -o StrictHostKeyChecking=no git@$INFRA_IP
 umount /mnt/
 losetup -d ${LOOP}
 echo "Image unmounted and loop device destroyed.."
